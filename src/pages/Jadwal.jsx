@@ -6,18 +6,18 @@ import Modal from '../components/Modal'
 const HOURS = Array.from({ length: 14 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`)
 
 const STATUS_OPTIONS = [
-  { value: 'menunggu',     label: 'Menunggu',     color: '#f59e0b' },
-  { value: 'dikonfirmasi', label: 'Dikonfirmasi', color: '#0ea5e9' },
-  { value: 'selesai',      label: 'Selesai',      color: '#22c55e' },
-  { value: 'dibatalkan',   label: 'Dibatalkan',   color: '#94a3b8' },
+  { value: 'menunggu',     label: 'Menunggu',     color: '#f59e0b', bg: '#fef3c7', border: '#fcd34d' },
+  { value: 'dikonfirmasi', label: 'Dikonfirmasi', color: '#0ea5e9', bg: '#e0f2fe', border: '#7dd3fc' },
+  { value: 'selesai',      label: 'Selesai',      color: '#22c55e', bg: '#dcfce7', border: '#86efac' },
+  { value: 'dibatalkan',   label: 'Dibatalkan',   color: '#94a3b8', bg: '#f1f5f9', border: '#cbd5e1' },
 ]
 
 const LEGEND = [
-  { color: '#e2e8f0', border: '#cbd5e1', label: 'Tersedia' },
-  { color: '#f59e0b', label: 'Menunggu' },
-  { color: '#0ea5e9', label: 'Dikonfirmasi' },
-  { color: '#22c55e', label: 'Selesai' },
-  { color: '#94a3b8', label: 'Dibatalkan' },
+  { color: '#ffffff', border: '#cbd5e1', label: 'Tersedia' },
+  { color: '#fef3c7', border: '#fcd34d', text: '#f59e0b', label: 'Menunggu' },
+  { color: '#e0f2fe', border: '#7dd3fc', text: '#0ea5e9', label: 'Dikonfirmasi' },
+  { color: '#dcfce7', border: '#86efac', text: '#22c55e', label: 'Selesai' },
+  { color: '#f1f5f9', border: '#cbd5e1', text: '#94a3b8', label: 'Dibatalkan' },
 ]
 
 function addDays(dateStr, days) {
@@ -57,7 +57,6 @@ export default function Jadwal() {
         db.query('pelanggan'),
       ])
       setLapangan(l || [])
-      // Filter reservasi berdasarkan tanggal yang dipilih
       setReservasi((r || []).filter((res) => res.tanggal === tanggal))
       setPelanggan(p || [])
     } catch (error) {
@@ -70,7 +69,6 @@ export default function Jadwal() {
     }
   }
 
-  // Pengecekan spesifik berdasarkan ID Lapangan dan Jam Mulai
   const getBooking = (lapanganId, jam) =>
     reservasi.find((r) => 
       String(r.lapangan_id) === String(lapanganId) && 
@@ -164,7 +162,7 @@ export default function Jadwal() {
         <div className="flex items-center gap-3">
           {LEGEND.map((l, idx) => (
             <div key={idx} className="flex items-center gap-2 text-sm text-gray-600">
-              <div style={{ width: 14, height: 14, background: l.color, borderRadius: 6, border: l.border ? `1px dashed ${l.border}` : undefined }} />
+              <div style={{ width: 14, height: 14, background: l.color, borderRadius: 6, border: `1px solid ${l.border}` }} />
               <div>{l.label}</div>
             </div>
           ))}
@@ -186,15 +184,22 @@ export default function Jadwal() {
                   {HOURS.map((jam) => {
                     const booking = getBooking(l.id, jam)
                     const statusObj = STATUS_OPTIONS.find(s => s.value === (booking?.status || 'menunggu'))
+                    
+                    // Menentukan warna kotak berdasarkan status booking
+                    const slotStyle = booking ? {
+                      backgroundColor: statusObj?.bg || '#fef3c7',
+                      borderColor: statusObj?.border || '#fcd34d',
+                    } : {
+                      backgroundColor: '#ffffff',
+                      borderColor: '#e2e8f0',
+                    }
+
                     return (
                       <div
                         key={jam}
                         onClick={() => booking ? openDetail(booking) : openAdd(l.id, jam)}
-                        className={`border rounded-xl p-3 text-center cursor-pointer transition ${
-                          booking 
-                            ? 'bg-blue-50/50 border-blue-200 hover:bg-blue-100/50' 
-                            : 'bg-white hover:bg-gray-50 border-gray-200'
-                        }`}
+                        style={slotStyle}
+                        className="border rounded-xl p-3 text-center cursor-pointer transition hover:opacity-80 shadow-xs"
                       >
                         <div className="text-sm font-semibold text-gray-700">{jam}</div>
                         <div className="text-xs mt-1 truncate font-medium" style={{ color: booking ? statusObj?.color || '#2563eb' : '#9ca3af' }}>
