@@ -5,51 +5,59 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true) // Wajib true di awal biar Satpam nunggu dulu
 
   useEffect(() => {
-    setLoading(false)
-  }, [])
+    // 1. Fungsi untuk mengecek sesi login saat web pertama kali dibuka/refresh
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          nama_lengkap: session.user.user_metadata?.nama_lengkap || session.user.email,
+          role: session.user.user_metadata?.role || 'admin',
+        })
+      }
+      setLoading(false) // Loading selesai setelah dapat jawaban dari Supabase
+    }
 
-  const persistUser = (userData) => {
-    setUser(userData || null)
-  }
+    getSession()
+
+    // 2. Pasang pendengar (listener) otomatis kalau kamu login/logout
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          nama_lengkap: session.user.user_metadata?.nama_lengkap || session.user.email,
+          role: session.user.user_metadata?.role || 'admin',
+        })
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    // Bersihkan pendengar kalau komponen ditutup
+    return () => subscription.unsubscribe()
+  }, [])
 
   const login = async (email, password) => {
     if (!supabase) throw new Error('Supabase client tidak terhubung.')
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
-    if (!data.user) throw new Error('Login gagal. Periksa kembali email dan password Anda.')
-
-    const userData = {
-      id: data.user.id,
-      email: data.user.email,
-      nama_lengkap: data.user.user_metadata?.nama_lengkap || data.user.email,
-      role: data.user.user_metadata?.role || 'admin',
-    }
-
-    persistUser(userData)
-    return userData
+    return data
   }
 
   const logout = async () => {
     if (!supabase) throw new Error('Supabase client tidak terhubung.')
     await supabase.auth.signOut()
-    persistUser(null)
-  }
-
-  const register = async ({ email, password, nama_lengkap }) => {
-    if (!supabase) throw new Error('Supabase client tidak terhubung.')
-    const { data, error } = await supabase.auth.signUp(
-      { email, password },
-      { data: { nama_lengkap, role: 'admin' } }
-    )
-    if (error) throw error
-    return data.user
+    setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )
