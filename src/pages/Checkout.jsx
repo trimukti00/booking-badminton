@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../supabase'; // Sesuaikan jalur import jika berbeda
+import { supabase } from '../supabase';
 
 export default function Checkout() {
   const location = useLocation();
@@ -10,6 +10,7 @@ export default function Checkout() {
   const [selectedPayment, setSelectedPayment] = useState('bca');
   const [namaPemesan, setNamaPemesan] = useState('');
   const [nomorWa, setNomorWa] = useState('');
+  const [emailPemesan, setEmailPemesan] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!pesanan) {
@@ -54,18 +55,17 @@ export default function Checkout() {
     setIsSubmitting(true);
 
     try {
-      // 1. OTOMATIS: Simpan atau Perbarui data pelanggan ke tabel 'pelanggan'
-      // Kita gunakan upsert berdasarkan nomor telepon/whatsapp agar tidak duplikat
+      // 1. Simpan atau perbarui data pelanggan secara otomatis ke tabel 'pelanggan'
       await supabase.from('pelanggan').upsert([
         {
           nama: namaPemesan,
           telepon: nomorWa,
-          email: `${namaPemesan.toLowerCase().replace(/\s+/g, '')}@pelanggan.com`, // Email otomatis jika tidak diisi
+          email: emailPemesan || `${namaPemesan.toLowerCase().replace(/\s+/g, '')}@pelanggan.com`,
           alamat: 'Dari Pemesanan Online'
         }
       ], { onConflict: 'telepon' });
 
-      // 2. Loop jika pelanggan memesan lebih dari 1 jam (multi-slot) ke tabel 'reservasi'
+      // 2. Masukkan reservasi per jam ke tabel 'reservasi'
       const jamList = pesanan.jamTerpilih;
       
       for (const jamMulai of jamList) {
@@ -94,13 +94,13 @@ export default function Checkout() {
         }
       }
 
-      // Jika Berhasil Simpan ke Supabase:
       const randomCode = 'GOR-' + Math.floor(100000 + Math.random() * 900000);
       
       const transaksiBaru = {
         ...pesanan,
         namaPemesan,
         nomorWa,
+        emailPemesan,
         bookingCode: randomCode,
         paymentMethod: selectedPayment,
         paidAt: new Date().toLocaleDateString('id-ID', { 
@@ -109,11 +109,9 @@ export default function Checkout() {
         }).replace('.', ':')
       };
 
-      // Simpan ke localStorage untuk riwayat di browser
       const riwayatLama = JSON.parse(localStorage.getItem('riwayatBooking') || '[]');
       localStorage.setItem('riwayatBooking', JSON.stringify([transaksiBaru, ...riwayatLama]));
       
-      // Pindah ke halaman eticket
       navigate('/eticket', { state: transaksiBaru });
 
     } catch (err) {
@@ -156,6 +154,15 @@ export default function Checkout() {
               placeholder="Nomor WhatsApp (Contoh: 08123456789)"
               value={nomorWa}
               onChange={(e) => setNomorWa(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-600 text-gray-800"
+            />
+          </div>
+          <div>
+            <input 
+              type="email"
+              placeholder="Alamat Email (Opsional)"
+              value={emailPemesan}
+              onChange={(e) => setEmailPemesan(e.target.value)}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-600 text-gray-800"
             />
           </div>
