@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import SEO from '../components/SEO'
-// Sesuaikan import ini kalau file supabase.js lu ada di luar folder pages
 import { supabase } from '../supabase' 
 
 function generateHours(start = 8, end = 22) {
@@ -26,8 +25,6 @@ export default function DetailLapangan() {
   })
   
   const [selectedSlots, setSelectedSlots] = useState([])
-  
-  // 1. UBAH STATE INI JADI KOSONG DULU (Nanti diisi otomatis dari Supabase)
   const [filledSlots, setFilledSlots] = useState([])
 
   const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem('favorites') || '[]'))
@@ -185,33 +182,31 @@ export default function DetailLapangan() {
     else setIsLoading(false)
   }, [id])
 
-  // 2. FUNGSI BARU: CEK JADWAL YANG UDAH DI-BOOKING KE SUPABASE
+  // CEK JADWAL SPESIFIK BERDASARKAN LAPANGAN & TANGGAL
   useEffect(() => {
     const fetchBookedSlots = async () => {
+      if (!id) return;
       try {
-        // Ambil data jam mulai dari tabel reservasi berdasarkan tanggal yang dipilih
         const { data, error } = await supabase
           .from('reservasi')
           .select('jam_mulai')
-          .eq('tanggal', selectedDate);
+          .eq('tanggal', selectedDate)
+          .eq('lapangan_id', id); // <-- Memastikan jadwal tidak tercampur antar lapangan
 
         if (error) throw error;
 
-        // Data dari Supabase formatnya "12:00:00", kita potong jadi "12:00" biar cocok sama tombol lu
-        const bookedHours = data.map(item => item.jam_mulai.substring(0, 5));
-        
-        // Update jam yang di-disable
+        const bookedHours = data ? data.map(item => item.jam_mulai.substring(0, 5)) : [];
         setFilledSlots(bookedHours);
       } catch (error) {
         console.error('Gagal mengambil jadwal lapangan:', error.message);
       }
     };
 
-    if (selectedDate) {
-      setSelectedSlots([]); // Reset pilihan lu kalau ganti tanggal
-      fetchBookedSlots();   // Panggil fungsi cek jadwal
+    if (selectedDate && id) {
+      setSelectedSlots([]); 
+      fetchBookedSlots();   
     }
-  }, [selectedDate]);
+  }, [selectedDate, id]);
 
   if (isLoading) {
     return (
@@ -258,7 +253,6 @@ export default function DetailLapangan() {
     })
   }
 
-  // --- BAGIAN RETURN (UI) SAMA PERSIS SEPERTI SEBELUMNYA ---
   return (
     <div className="min-h-screen bg-gray-50 pb-32 relative">
       <SEO title={`Detail - ${item.nama}`} />
@@ -352,7 +346,7 @@ export default function DetailLapangan() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800"
             />
           </div>
 
@@ -421,7 +415,7 @@ export default function DetailLapangan() {
               <textarea 
                 value={reviewText}
                 onChange={(e) => setReviewText(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none bg-gray-50" 
+                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none bg-gray-50 text-gray-800" 
                 rows="3" 
                 placeholder="Apakah lapangannya nyaman? Bagaimana dengan fasilitasnya?"
               ></textarea>
@@ -475,7 +469,7 @@ export default function DetailLapangan() {
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div>
             <div className="text-sm text-gray-500">Total Harga</div>
-            <div className="text-lg font-semibold">Rp {Number(totalPrice).toLocaleString('id-ID')}</div>
+            <div className="text-lg font-semibold text-gray-800">Rp {Number(totalPrice).toLocaleString('id-ID')}</div>
           </div>
           <div>
             <button
