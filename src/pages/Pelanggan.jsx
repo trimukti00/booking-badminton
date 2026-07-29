@@ -21,7 +21,7 @@ export default function Pelanggan() {
     setLoading(true)
     try {
       const res = await db.query('pelanggan')
-      setData(res)
+      setData(res || [])
     } catch (error) {
       console.error(error)
       setData([])
@@ -42,20 +42,29 @@ export default function Pelanggan() {
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    if (editId) {
-      await db.update('pelanggan', editId, form)
-    } else {
-      await db.insert('pelanggan', form)
+    try {
+      if (editId) {
+        await db.update('pelanggan', editId, form)
+      } else {
+        await db.insert('pelanggan', form)
+      }
+      setModal(false)
+      load()
+    } catch (err) {
+      alert('Gagal menyimpan: ' + (err.message || 'Terjadi kesalahan'))
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
-    setModal(false)
-    load()
   }
 
   const handleDelete = async (row) => {
     if (!confirm(`Hapus pelanggan "${row.nama}"?`)) return
-    await db.remove('pelanggan', row.id)
-    load()
+    try {
+      await db.remove('pelanggan', row.id)
+      load()
+    } catch (err) {
+      alert('Gagal menghapus: ' + err.message)
+    }
   }
 
   const filtered = data.filter((p) =>
@@ -107,7 +116,7 @@ export default function Pelanggan() {
             <p className="text-gray-500">Kelola data pelanggan GOR TAKUR — {data.length} pelanggan terdaftar</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={openAdd} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium">＋ Tambah Pelanggan</button>
+            <button onClick={openAdd} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium cursor-pointer">＋ Tambah Pelanggan</button>
           </div>
         </div>
       </header>
@@ -115,9 +124,9 @@ export default function Pelanggan() {
       {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-6">
         {[
-          { label: 'Total Pelanggan', value: data.length, icon: '👥', color: '#eff6ff', accent: '#2563eb' },
-          { label: 'Hasil Pencarian', value: filtered.length, icon: '🔍', color: '#f0fdf4', accent: '#16a34a' },
-          { label: 'Bulan Ini', value: data.filter(p => p.created_at?.slice(0, 7) === new Date().toISOString().slice(0, 7)).length, icon: '📅', color: '#fff7ed', accent: '#ea580c' },
+          { label: 'Total Pelanggan', value: data.length, icon: '👥' },
+          { label: 'Hasil Pencarian', value: filtered.length, icon: '🔍' },
+          { label: 'Bulan Ini', value: data.filter(p => p.created_at?.slice(0, 7) === new Date().toISOString().slice(0, 7)).length, icon: '📅' },
         ].map((s) => (
           <div key={s.label} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
             <div className="text-2xl">{s.icon}</div>
@@ -129,17 +138,16 @@ export default function Pelanggan() {
 
       <div>
         <div className="flex items-center gap-4 mb-4">
-          <div className="relative">
+          <div className="relative flex-1 max-w-sm">
             <input
-              className="w-full max-w-sm px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-gray-50"
+              className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-gray-50 text-gray-800"
               placeholder="Cari nama, telepon, atau email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <div className="absolute left-3 top-2.5">🔍</div>
           </div>
           {search && (
-            <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl" onClick={() => setSearch('')}>✕ Hapus Filter</button>
+            <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl cursor-pointer" onClick={() => setSearch('')}>✕ Hapus Filter</button>
           )}
           <span className="ml-auto text-sm text-gray-500">{filtered.length} dari {data.length} data</span>
         </div>
@@ -170,28 +178,28 @@ export default function Pelanggan() {
         <form onSubmit={handleSave} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Nama Lengkap <span className="text-red-500">*</span></label>
-            <input className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white" placeholder="Nama pelanggan" value={form.nama} onChange={set('nama')} required />
+            <input className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-gray-800" placeholder="Nama pelanggan" value={form.nama} onChange={set('nama')} required />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">No. Telepon <span className="text-red-500">*</span></label>
-              <input className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white" placeholder="08xxxxxxxxxx" value={form.telepon} onChange={set('telepon')} required />
+              <input className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-gray-800" placeholder="08xxxxxxxxxx" value={form.telepon} onChange={set('telepon')} required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white" type="email" placeholder="email@contoh.com" value={form.email} onChange={set('email')} />
+              <input className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-gray-800" type="email" placeholder="email@contoh.com" value={form.email} onChange={set('email')} />
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Alamat</label>
-            <textarea className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white" placeholder="Alamat lengkap pelanggan" value={form.alamat} onChange={set('alamat')} rows={3} />
+            <textarea className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-gray-800" placeholder="Alamat lengkap pelanggan" value={form.alamat} onChange={set('alamat')} rows={3} />
           </div>
 
-          <div className="flex justify-end gap-3">
-            <button type="button" className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl" onClick={() => setModal(false)}>Batal</button>
-            <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium" disabled={saving}>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl cursor-pointer" onClick={() => setModal(false)}>Batal</button>
+            <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium cursor-pointer disabled:opacity-50" disabled={saving}>
               {saving ? '⏳ Menyimpan...' : editId ? '✔ Simpan Perubahan' : '＋ Tambah Pelanggan'}
             </button>
           </div>
