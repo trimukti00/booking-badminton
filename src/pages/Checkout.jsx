@@ -65,7 +65,7 @@ export default function Checkout() {
         }
       ], { onConflict: 'telepon' });
 
-      // 2. Masukkan reservasi per jam ke tabel 'reservasi'
+      // 2. Masukkan reservasi per jam ke tabel 'reservasi' dengan menyertakan lapangan_id
       const jamList = pesanan.jamTerpilih;
       
       for (const jamMulai of jamList) {
@@ -74,6 +74,7 @@ export default function Checkout() {
 
         const { error } = await supabase.from('reservasi').insert([
           {
+            lapangan_id: pesanan.lapangan?.id, // <-- Kunci pemisah jadwal tiap lapangan
             nama_pemesan: namaPemesan,
             nomor_wa: nomorWa,
             tanggal: pesanan.tanggal,
