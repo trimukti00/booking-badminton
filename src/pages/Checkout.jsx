@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabase'; // Sesuaikan jalur import jika berbeda
 
 export default function Checkout() {
   const location = useLocation();
@@ -7,6 +8,9 @@ export default function Checkout() {
   const pesanan = location.state;
 
   const [selectedPayment, setSelectedPayment] = useState('bca');
+  const [namaPemesan, setNamaPemesan] = useState('');
+  const [nomorWa, setNomorWa] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!pesanan) {
     return (
@@ -38,25 +42,77 @@ export default function Checkout() {
     return String(rawJam);
   };
 
-  const handleBayar = () => {
-    const randomCode = 'GOR-' + Math.floor(100000 + Math.random() * 900000);
-    
-    const transaksiBaru = {
-      ...pesanan,
-      bookingCode: randomCode,
-      paymentMethod: selectedPayment,
-      paidAt: new Date().toLocaleDateString('id-ID', { 
-        day: 'numeric', month: 'long', year: 'numeric', 
-        hour: '2-digit', minute: '2-digit' 
-      }).replace('.', ':')
-    };
+  const handleBayar = async () => {
+    if (!namaPemesan.trim() || !nomorWa.trim()) {
+      return alert('Mohon isi Nama Pemesan dan Nomor WhatsApp terlebih dahulu!');
+    }
 
-    // SIMPAN KE LOCALSTORAGE AGAR MUNCUL DI HALAMAN RIWAYAT
-    const riwayatLama = JSON.parse(localStorage.getItem('riwayatBooking') || '[]');
-    localStorage.setItem('riwayatBooking', JSON.stringify([transaksiBaru, ...riwayatLama]));
-    
-    // Pindah ke halaman eticket
-    navigate('/eticket', { state: transaksiBaru });
+    if (!pesanan.jamTerpilih || pesanan.jamTerpilih.length === 0) {
+      return alert('Tidak ada jam yang dipilih!');
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Loop jika pelanggan memesan lebih dari 1 jam (multi-slot)
+      // Kita masukkan satu per satu jam mulai ke tabel reservasi Supabase
+      const jamList = pesanan.jamTerpilih;
+      
+      for (const jamMulai of jamList) {
+        // Hitung jam selesai otomatis (1 jam durasi per slot)
+        const jamSelesaiNum = parseInt(jamMulai, 10) + 1;
+        const jamSelesaiStr = String(jamSelesaiNum).padStart(2, '0') + ':00';
+
+        const { error } = await supabase.from('reservasi').insert([
+          {
+            nama_pemesan: namaPemesan,
+            nomor_wa: nomorWa,
+            tanggal: pesanan.tanggal,
+            jam_mulai: `${jamMulai}:00`, // Format tipe data TIME PostgreSQL
+            jam_selesai: `${jamSelesaiStr}:00`,
+            jenis_paket: 'Perorangan',
+            total_harga: pesanan.totalHarga / jamList.length, // Harga per slot
+            status_pembayaran: selectedPayment === 'cash' ? 'Belum Lunas' : 'Lunas',
+            status_kehadiran: 'Menunggu'
+          }
+        ]);
+
+        if (error) {
+          // Jika satpam cegah_double_booking menolak karena sudah ada yang pesan
+          if (error.code === '23505') {
+            throw new Error(`Mohon maaf, jam ${jamMulai} pada tanggal tersebut sudah dibooking oleh orang lain!`);
+          }
+          throw error;
+        }
+      }
+
+      // Jika Berhasil Simpan ke Supabase:
+      const randomCode = 'GOR-' + Math.floor(100000 + Math.random() * 900000);
+      
+      const transaksiBaru = {
+        ...pesanan,
+        namaPemesan,
+        nomorWa,
+        bookingCode: randomCode,
+        paymentMethod: selectedPayment,
+        paidAt: new Date().toLocaleDateString('id-ID', { 
+          day: 'numeric', month: 'long', year: 'numeric', 
+          hour: '2-digit', minute: '2-digit' 
+        }).replace('.', ':')
+      };
+
+      // Simpan ke localStorage untuk riwayat di browser
+      const riwayatLama = JSON.parse(localStorage.getItem('riwayatBooking') || '[]');
+      localStorage.setItem('riwayatBooking', JSON.stringify([transaksiBaru, ...riwayatLama]));
+      
+      // Pindah ke halaman eticket
+      navigate('/eticket', { state: transaksiBaru });
+
+    } catch (err) {
+      alert(err.message || 'Terjadi kesalahan saat memproses pemesanan.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -66,11 +122,35 @@ export default function Checkout() {
         <div className="flex items-center justify-between border-b border-gray-100 pb-4">
           <h1 className="text-xl font-bold text-gray-900">Checkout Pesanan</h1>
           <button 
+            type="button"
             onClick={() => navigate(-1)} 
             className="text-gray-400 hover:text-gray-600 text-sm font-medium cursor-pointer"
           >
             ← Kembali
           </button>
+        </div>
+
+        {/* Input Data Pemesan */}
+        <div className="space-y-3">
+          <label className="text-sm font-semibold text-gray-800 block">Informasi Pemesan</label>
+          <div>
+            <input 
+              type="text"
+              placeholder="Nama Lengkap"
+              value={namaPemesan}
+              onChange={(e) => setNamaPemesan(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-600"
+            />
+          </div>
+          <div>
+            <input 
+              type="tel"
+              placeholder="Nomor WhatsApp (Contoh: 08123456789)"
+              value={nomorWa}
+              onChange={(e) => setNomorWa(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-600"
+            />
+          </div>
         </div>
 
         {/* Ringkasan */}
@@ -123,9 +203,10 @@ export default function Checkout() {
         <button
           type="button"
           onClick={handleBayar}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3.5 rounded-2xl transition cursor-pointer text-sm shadow-md"
+          disabled={isSubmitting}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3.5 rounded-2xl transition cursor-pointer text-sm shadow-md disabled:bg-emerald-300"
         >
-          Proses Pembayaran & Buat E-Ticket
+          {isSubmitting ? 'Memproses ke Database...' : 'Proses Pembayaran & Buat E-Ticket'}
         </button>
 
       </div>

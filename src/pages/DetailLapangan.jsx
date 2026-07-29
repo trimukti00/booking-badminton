@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import SEO from '../components/SEO'
-import { supabase } from '../lib/supabase'
+// Sesuaikan import ini kalau file supabase.js lu ada di luar folder pages
+import { supabase } from '../supabase' 
 
 function generateHours(start = 8, end = 22) {
   const hours = []
@@ -23,11 +24,14 @@ export default function DetailLapangan() {
     const today = new Date()
     return today.toISOString().slice(0, 10)
   })
+  
   const [selectedSlots, setSelectedSlots] = useState([])
+  
+  // 1. UBAH STATE INI JADI KOSONG DULU (Nanti diisi otomatis dari Supabase)
+  const [filledSlots, setFilledSlots] = useState([])
 
   const [favorites, setFavorites] = useState(() => JSON.parse(localStorage.getItem('favorites') || '[]'))
   const [hasBooked, setHasBooked] = useState(false)
-  const [filledSlots] = useState(['12:00', '13:00', '18:00'])
 
   const hours = useMemo(() => generateHours(8, 22), [])
   const carouselRef = useRef(null)
@@ -36,11 +40,8 @@ export default function DetailLapangan() {
   const [userRating, setUserRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [reviewText, setReviewText] = useState('')
-
-  // State Ulasan (Dimuat dinamis berdasarkan ID lapangan dari localStorage)
   const [reviews, setReviews] = useState([])
 
-  // Load ulasan khusus untuk lapangan ini saat ID berubah
   useEffect(() => {
     if (!id) return
     const savedReviews = localStorage.getItem(`reviews_${id}`)
@@ -78,12 +79,10 @@ export default function DetailLapangan() {
     ]
   }
 
-  // Hitung Rata-rata Rating secara Otomatis
   const totalRatingSum = reviews.reduce((acc, curr) => acc + curr.rating, 0)
   const dynamicRating = reviews.length > 0 ? (totalRatingSum / reviews.length).toFixed(1) : (lapangan?.rating || '4.8')
   const dynamicReviewCount = reviews.length
 
-  // Cek apakah user sudah pernah booking lapangan ini
   useEffect(() => {
     const riwayat = JSON.parse(localStorage.getItem('riwayatBooking') || '[]')
     const sudahPernahBooking = riwayat.some((itemPesanan) => {
@@ -99,11 +98,8 @@ export default function DetailLapangan() {
     if (!reviewText.trim()) return alert('Mohon tulis ulasan Anda!');
 
     const waktuDetail = new Date().toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric', month: 'long', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
     }).replace('.', ':');
 
     const newReview = {
@@ -118,8 +114,6 @@ export default function DetailLapangan() {
 
     const updatedReviews = [newReview, ...reviews];
     setReviews(updatedReviews);
-    
-    // Simpan ke localStorage agar permanen untuk lapangan ini
     localStorage.setItem(`reviews_${id}`, JSON.stringify(updatedReviews));
 
     alert('Terima kasih! Ulasan dan rating Anda berhasil ditambahkan.');
@@ -166,6 +160,7 @@ export default function DetailLapangan() {
     }
   }
 
+  // AMBIL DATA LAPANGAN DARI SUPABASE
   useEffect(() => {
     const fetchLapangan = async () => {
       setIsLoading(true)
@@ -190,9 +185,33 @@ export default function DetailLapangan() {
     else setIsLoading(false)
   }, [id])
 
+  // 2. FUNGSI BARU: CEK JADWAL YANG UDAH DI-BOOKING KE SUPABASE
   useEffect(() => {
-    setSelectedSlots([])
-  }, [selectedDate])
+    const fetchBookedSlots = async () => {
+      try {
+        // Ambil data jam mulai dari tabel reservasi berdasarkan tanggal yang dipilih
+        const { data, error } = await supabase
+          .from('reservasi')
+          .select('jam_mulai')
+          .eq('tanggal', selectedDate);
+
+        if (error) throw error;
+
+        // Data dari Supabase formatnya "12:00:00", kita potong jadi "12:00" biar cocok sama tombol lu
+        const bookedHours = data.map(item => item.jam_mulai.substring(0, 5));
+        
+        // Update jam yang di-disable
+        setFilledSlots(bookedHours);
+      } catch (error) {
+        console.error('Gagal mengambil jadwal lapangan:', error.message);
+      }
+    };
+
+    if (selectedDate) {
+      setSelectedSlots([]); // Reset pilihan lu kalau ganti tanggal
+      fetchBookedSlots();   // Panggil fungsi cek jadwal
+    }
+  }, [selectedDate]);
 
   if (isLoading) {
     return (
@@ -239,6 +258,7 @@ export default function DetailLapangan() {
     })
   }
 
+  // --- BAGIAN RETURN (UI) SAMA PERSIS SEPERTI SEBELUMNYA ---
   return (
     <div className="min-h-screen bg-gray-50 pb-32 relative">
       <SEO title={`Detail - ${item.nama}`} />
@@ -282,7 +302,6 @@ export default function DetailLapangan() {
               <h1 className="text-2xl font-bold text-gray-900">{item.nama}</h1>
               <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">{lapangan?.lokasi || item.lokasi}</p>
               
-              {/* RATING & JUMLAH ULASAN DINAMIS */}
               <div className="flex items-center gap-1.5 mt-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
