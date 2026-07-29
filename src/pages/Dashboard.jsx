@@ -32,9 +32,11 @@ export default function Dashboard() {
 
       const today = new Date().toISOString().slice(0, 10)
       const hariIni = reservasi.filter((r) => r.tanggal === today && r.status !== 'dibatalkan').length
-      const totalPendapatan = pembayaran
-        .filter((p) => p.status === 'lunas')
-        .reduce((sum, p) => sum + Number(p.jumlah || 0), 0)
+      
+      // Ambil pendapatan langsung dari reservasi (biar sinkron dengan laporan)
+      const totalPendapatan = reservasi
+        .filter((r) => (r.status_pembayaran || '').toLowerCase() === 'lunas')
+        .reduce((sum, r) => sum + Number(r.total_harga || 0), 0)
 
       const pelangganMap = {}
       pelanggan.forEach((p) => { pelangganMap[p.id] = p.nama })
@@ -48,7 +50,8 @@ export default function Dashboard() {
         .slice(0, 6)
         .map((r) => ({
           ...r,
-          nama_pelanggan: pelangganMap[r.pelanggan_id] || r.nama || '-',
+          // Perbaikan: gunakan r.nama_pemesan sesuai database lu
+          nama_pelanggan: pelangganMap[r.pelanggan_id] || r.nama_pemesan || '-',
           nama_lapangan: lapanganMap[r.lapangan_id] || r.lapangan || '-',
         }))
 
@@ -58,7 +61,8 @@ export default function Dashboard() {
         .slice(0, 5)
         .map((r) => ({
           ...r,
-          nama_pelanggan: pelangganMap[r.pelanggan_id] || r.nama || '-',
+          // Perbaikan: gunakan r.nama_pemesan sesuai database lu
+          nama_pelanggan: pelangganMap[r.pelanggan_id] || r.nama_pemesan || '-',
           nama_lapangan: lapanganMap[r.lapangan_id] || r.lapangan || '-',
         }))
 
@@ -72,6 +76,14 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Merapikan nama sapaan (memotong @gmail.com jika login pakai email)
+  const getDisplayName = () => {
+    if (user?.nama_lengkap) return user.nama_lengkap;
+    if (user?.username) return user.username;
+    if (user?.email) return user.email.split('@')[0];
+    return 'Admin';
   }
 
   const statCards = [
@@ -90,27 +102,21 @@ export default function Dashboard() {
 
       {/* Section Header / Greeting */}
       <header>
-        <h1 className="text-2xl font-bold text-gray-800">Selamat Sore, {user?.email || user?.nama_lengkap || user?.username || 'Admin'}! 👋</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{greeting}, {getDisplayName()}! 👋</h1>
         <p className="text-gray-500 mt-1">Selamat datang di Sistem Informasi Reservasi Lapangan Badminton GOR TAKUR. Berikut ringkasan data hari ini.</p>
       </header>
 
       {/* Section Statistik */}
       <section>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
-            <span className="text-4xl font-extrabold text-blue-600 mb-2">{loading ? <span className="skeleton" style={{ display: 'inline-block', width: 80, height: 36, borderRadius: 8 }} /> : stats.pelanggan}</span>
-            <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Pelanggan</span>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
-            <span className="text-4xl font-extrabold text-blue-600 mb-2">{loading ? <span className="skeleton" style={{ display: 'inline-block', width: 80, height: 36, borderRadius: 8 }} /> : stats.reservasi}</span>
-            <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Reservasi</span>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
-            <span className="text-4xl font-extrabold text-blue-600 mb-2">{loading ? <span className="skeleton" style={{ display: 'inline-block', width: 80, height: 36, borderRadius: 8 }} /> : stats.hariIni}</span>
-            <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Hari Ini</span>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {statCards.map((s, idx) => (
+            <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
+              <span className="text-3xl font-extrabold mb-2" style={{ color: s.color }}>
+                {loading ? <span className="skeleton" style={{ display: 'inline-block', width: 80, height: 36, borderRadius: 8 }} /> : s.value}
+              </span>
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">{s.label}</span>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -137,10 +143,10 @@ export default function Dashboard() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-2xl font-semibold">Reservasi Terbaru</div>
+              <div className="text-xl font-semibold">Reservasi Terbaru</div>
               <p className="text-sm text-gray-500">6 reservasi terakhir masuk sistem</p>
             </div>
-            <Link to="/jadwal" className="text-sm text-blue-600 font-medium">Lihat Jadwal →</Link>
+            <Link to="/jadwal" className="text-sm text-blue-600 font-medium hover:underline">Lihat Jadwal →</Link>
           </div>
 
           <div className="mt-4">
@@ -162,7 +168,9 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold">{r.jam_mulai?.slice(0,5) || r.jam}{r.jam_selesai ? ` - ${r.jam_selesai.slice(0,5)}` : ''}</div>
-                      <div className="text-xs text-gray-500 mt-1">{r.status || 'menunggu'}</div>
+                      <div className="text-xs mt-1 capitalize font-medium" style={{ color: r.status === 'dikonfirmasi' ? '#0ea5e9' : r.status === 'selesai' ? '#22c55e' : '#f59e0b' }}>
+                        {r.status || 'menunggu'}
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -173,7 +181,7 @@ export default function Dashboard() {
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div>
-            <div className="text-2xl font-semibold">Jadwal Hari Ini</div>
+            <div className="text-xl font-semibold">Jadwal Hari Ini</div>
             <p className="text-sm text-gray-500">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
           </div>
 
@@ -188,14 +196,14 @@ export default function Dashboard() {
             ) : (
               <ul className="space-y-3">
                 {jadwalHariIni.map((r) => (
-                  <li key={r.id} className="p-3 rounded-lg border border-gray-100 flex items-center justify-between">
+                  <li key={r.id} className="p-3 rounded-lg border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors">
                     <div>
                       <div className="font-medium text-gray-800">{r.nama_pelanggan}</div>
                       <div className="text-xs text-gray-500">{r.nama_lapangan}</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold">{r.jam_mulai?.slice(0,5) || r.jam}{r.jam_selesai ? ` - ${r.jam_selesai.slice(0,5)}` : ''}</div>
-                      <div className="text-xs text-gray-500 mt-1">{r.status || 'menunggu'}</div>
+                      <div className="font-semibold text-blue-600">{r.jam_mulai?.slice(0,5) || r.jam}{r.jam_selesai ? ` - ${r.jam_selesai.slice(0,5)}` : ''}</div>
+                      <div className="text-xs text-gray-500 mt-1 capitalize">{r.status || 'menunggu'}</div>
                     </div>
                   </li>
                 ))}
@@ -204,7 +212,7 @@ export default function Dashboard() {
           </div>
 
           {jadwalHariIni.length > 0 && (
-            <div className="mt-4 text-center text-sm text-blue-700 bg-blue-50 border border-blue-100 py-2 rounded-md">
+            <div className="mt-4 text-center text-sm text-blue-700 bg-blue-50 border border-blue-100 py-2.5 rounded-lg transition-colors hover:bg-blue-100">
               📅 {jadwalHariIni.length} jadwal hari ini • <Link to="/jadwal" className="font-semibold">Kelola Jadwal</Link>
             </div>
           )}
