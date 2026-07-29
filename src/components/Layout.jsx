@@ -20,6 +20,7 @@ export default function Layout() {
 
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
+  // 1. Loading kita nyalakan lagi
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -28,6 +29,7 @@ export default function Layout() {
     )
   }
 
+  // 2. Satpam kita bangunkan lagi (Wajib bawa tiket login)
   if (!user) return <Navigate to="/login" replace />
 
   const page = pageNames[location.pathname] || { label: 'Halaman', icon: '📄' }
@@ -71,14 +73,14 @@ export default function Layout() {
             <div
               className="flex items-center gap-3 cursor-pointer"
               onClick={logout}
-              title={`Keluar (${user.nama_lengkap || user.username})`}
+              title={`Keluar (${user?.nama_lengkap || user?.username})`}
             >
               <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-700">
-                {(user.nama_lengkap || user.username || 'A')[0].toUpperCase()}
+                {(user?.nama_lengkap || user?.username || 'A')[0].toUpperCase()}
               </div>
               <div className="hidden md:flex flex-col text-sm text-gray-700">
-                <span className="font-medium">{user.nama_lengkap || user.username}</span>
-                <span className="text-xs text-gray-500">{user.role || 'Admin'}</span>
+                <span className="font-medium">{user?.nama_lengkap || user?.username}</span>
+                <span className="text-xs text-gray-500">{user?.role || 'Admin'}</span>
               </div>
             </div>
           </div>
