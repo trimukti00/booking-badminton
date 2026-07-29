@@ -27,15 +27,16 @@ export default function Laporan() {
     setLoading(true)
     try {
       const { start, end } = getMonthRange(tahun, bulan)
-      const [reservasi, pelanggan] = await Promise.all([
-        db.query('reservasi'),
-        db.query('pelanggan'),
-      ])
+      
+      // HANYA ambil dari tabel reservasi (anti-error)
+      const reservasi = await db.query('reservasi').catch(() => [])
 
-      const filteredRes = Array.isArray(reservasi) ? reservasi.filter(r => r.tanggal >= start && r.tanggal <= end) : []
-      const filteredPel = Array.isArray(pelanggan) ? pelanggan.filter(p => p.created_at?.slice(0, 10) >= start && p.created_at?.slice(0, 10) <= end) : []
+      // Filter berdasarkan bulan yang dipilih
+      const filteredRes = Array.isArray(reservasi) 
+        ? reservasi.filter(r => r.tanggal && r.tanggal >= start && r.tanggal <= end) 
+        : []
 
-      // Perhitungan bersumber langsung dari tabel reservasi
+      // Hitung uang masuk
       const pendapatan = filteredRes
         .filter(r => (r.status_pembayaran || '').toLowerCase() === 'lunas')
         .reduce((s, r) => s + Number(r.total_harga || 0), 0)
@@ -43,54 +44,52 @@ export default function Laporan() {
       const lunas = filteredRes.filter(r => (r.status_pembayaran || '').toLowerCase() === 'lunas').length
       const belum = filteredRes.filter(r => (r.status_pembayaran || '').toLowerCase() !== 'lunas').length
 
-      // Pendapatan & Reservasi By Day (Harian)
+      // Hitung jumlah pelanggan unik bulan ini dari nomor WA atau nama
+      const uniqueCustomers = new Set(filteredRes.map(r => r.nomor_wa || r.nama_pemesan)).size
+
+      // Grafik Harian
       const daysInMonth = new Date(tahun, bulan, 0).getDate()
       const dayData = Array.from({ length: daysInMonth }, (_, i) => {
         const day = String(i + 1).padStart(2, '0')
         const date = `${tahun}-${String(bulan).padStart(2, '0')}-${day}`
         
         const dayResList = filteredRes.filter(r => r.tanggal === date)
-        const dayResCount = dayResList.length
         const dayInc = dayResList
           .filter(r => (r.status_pembayaran || '').toLowerCase() === 'lunas')
           .reduce((s, r) => s + Number(r.total_harga || 0), 0)
 
-        return { day: i + 1, date, reservasi: dayResCount, pendapatan: dayInc }
+        return { day: i + 1, date, reservasi: dayResList.length, pendapatan: dayInc }
       })
 
-      // By status reservasi
+      // Status Pembayaran
       const statusCount = {}
       filteredRes.forEach(r => {
-        const st = r.status || 'menunggu'
+        const st = r.status_pembayaran || 'Belum Lunas'
         statusCount[st] = (statusCount[st] || 0) + 1
       })
 
-      // Top pelanggan
-      const pelMap = {}
-      (pelanggan || []).forEach(p => { pelMap[p.id] = p.nama })
-      
+      // Top Pelanggan
       const pelCount = {}
       filteredRes.forEach(r => {
-        // Mendukung pencocokan dari ID pelanggan atau nama langsung
-        const key = r.pelanggan_id || r.nama_pemesan
-        if (key) pelCount[key] = (pelCount[key] || 0) + 1
+        const key = r.nama_pemesan || 'Tanpa Nama'
+        pelCount[key] = (pelCount[key] || 0) + 1
       })
 
       const topPel = Object.entries(pelCount)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(([idOrName, count]) => ({
-          nama: pelMap[idOrName] || idOrName,
-          count
-        }))
+        .map(([nama, count]) => ({ nama, count }))
 
-      setStats({ pendapatan, reservasi: filteredRes.length, pelangganBaru: filteredPel.length, lunas, belum })
+      setStats({ pendapatan, reservasi: filteredRes.length, pelangganBaru: uniqueCustomers, lunas, belum })
       setByDay(dayData)
       setByStatus(statusCount)
       setTopPelanggan(topPel)
-      setAllReservasi(filteredRes.map(r => ({ ...r, nama_pelanggan: pelMap[r.pelanggan_id] || r.nama_pemesan || '-' })))
+      
+      // Amankan data nama untuk tabel
+      setAllReservasi(filteredRes.map(r => ({ ...r, nama_pelanggan: r.nama_pemesan || '-' })))
+      
     } catch (error) {
-      console.error(error)
+      console.error('Data gagal dimuat:', error)
       setStats({ pendapatan: 0, reservasi: 0, pelangganBaru: 0, lunas: 0, belum: 0 })
       setByDay([])
       setByStatus({})
@@ -110,7 +109,7 @@ export default function Laporan() {
     { label: 'Total Reservasi',  value: stats.reservasi,  icon: '📅', color: '#2563eb', bg: '#eff6ff' },
     { label: 'Pembayaran Lunas', value: stats.lunas,      icon: '✅', color: '#16a34a', bg: '#f0fdf4' },
     { label: 'Belum Lunas',      value: stats.belum,      icon: '⏳', color: '#ea580c', bg: '#fff7ed' },
-    { label: 'Pelanggan Baru',   value: stats.pelangganBaru, icon: '👥', color: '#9333ea', bg: '#faf5ff' },
+    { label: 'Pelanggan Bulan Ini', value: stats.pelangganBaru, icon: '👥', color: '#9333ea', bg: '#faf5ff' },
   ]
 
   return (
@@ -171,7 +170,7 @@ export default function Laporan() {
 
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <div className="font-semibold text-gray-800 mb-3">🎯 Status Reservasi</div>
+                <div className="font-semibold text-gray-800 mb-3">🎯 Status Pembayaran</div>
                 {Object.keys(byStatus).length === 0 ? (
                   <div className="text-center text-gray-400 py-6 text-sm">Tidak ada data status</div>
                 ) : (
@@ -198,7 +197,7 @@ export default function Laporan() {
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div className="font-semibold text-gray-800 mb-3">🏆 Top Pelanggan</div>
                 {topPelanggan.length === 0 ? (
-                  <div className="text-center text-gray-400 py-6 text-sm">Tidak ada data pelanggan</div>
+                  <div className="text-center text-gray-400 py-6 text-sm">Belum ada pelanggan</div>
                 ) : (
                   <div className="space-y-3">
                     {topPelanggan.map((p, i) => (
