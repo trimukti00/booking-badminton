@@ -1,22 +1,21 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { toPng } from 'html-to-image';
+import SEO from '../components/SEO';
 
 export default function ETicket() {
   const location = useLocation();
   const navigate = useNavigate();
-  const dataTiket = location.state;
-  
-  const ticketRef = useRef(null);
+  const pesanan = location.state;
 
-  if (!dataTiket) {
+  // Jika pengunjung nyasar ke halaman ini tanpa pesanan
+  if (!pesanan) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
         <h2 className="text-xl font-bold text-gray-800 mb-2">Tiket Tidak Ditemukan</h2>
-        <p className="text-gray-500 mb-6">Belum ada data transaksi yang aktif.</p>
+        <p className="text-gray-500 mb-6">Silakan lakukan pemesanan terlebih dahulu.</p>
         <button 
           onClick={() => navigate('/')} 
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition cursor-pointer"
+          className="bg-blue-600 text-white px-6 py-2 rounded-xl font-medium hover:bg-blue-700 transition cursor-pointer"
         >
           Kembali ke Beranda
         </button>
@@ -24,173 +23,127 @@ export default function ETicket() {
     );
   }
 
-  // Cek apakah metode pembayaran adalah Cash / Bayar di Tempat
-  const isCash = dataTiket.paymentMethod === 'cash' || dataTiket.paymentMethod === 'CASH';
+  // UBAH NOMOR INI JADI NOMOR WA ADMIN GOR (Gunakan format 62...)
+  const NOMOR_WA_ADMIN = "6281234567890"; 
 
-  const renderJam = () => {
-    const rawJam = dataTiket.jamTerpilih || dataTiket.jam;
-    if (!rawJam) return '-';
-    if (Array.isArray(rawJam)) {
-      return rawJam.map((hour) => {
-        if (typeof hour === 'string' && hour.includes(':') && !hour.includes('-')) {
-          const nextHour = String(parseInt(hour, 10) + 1).padStart(2, '0') + ':00';
-          return `${hour} - ${nextHour}`;
-        }
-        return hour;
-      }).join(', ');
-    }
-    return String(rawJam);
-  };
+  // Format pesan otomatis untuk WhatsApp
+  const pesanWA = `Halo Admin GORTAKUR, saya ingin konfirmasi pembayaran booking lapangan:
+  
+*Kode Booking:* ${pesanan.bookingCode}
+*Nama Pemesan:* ${pesanan.namaPemesan}
+*Lapangan:* ${pesanan.lapangan?.nama}
+*Tanggal Main:* ${pesanan.tanggal}
+*Sesi Jam:* ${pesanan.jamTerpilih.join(', ')}
+*Total Tagihan:* Rp ${pesanan.totalHarga?.toLocaleString('id-ID')}
+*Metode Pembayaran:* ${pesanan.paymentMethod.toUpperCase()}
 
-  const handleDownloadImage = () => {
-    if (ticketRef.current) {
-      toPng(ticketRef.current, { cacheBust: true, quality: 0.95 })
-        .then((dataUrl) => {
-          const link = document.createElement('a');
-          link.download = `E-Ticket-${dataTiket.bookingCode || 'GOR'}.png`;
-          link.href = dataUrl;
-          link.click();
-        })
-        .catch((err) => {
-          console.error('Gagal mendownload gambar:', err);
-          alert('Terjadi kesalahan saat mengunduh gambar tiket.');
-        });
-    }
-  };
+Berikut saya lampirkan bukti transfer pembayarannya. Mohon bantu di-cek ya min! 🙏`;
+
+  const linkWA = `https://wa.me/${NOMOR_WA_ADMIN}?text=${encodeURIComponent(pesanWA)}`;
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4 flex items-center justify-center">
-      <div className="max-w-md w-full flex flex-col gap-4">
+    <div className="min-h-screen bg-gray-100 py-10 px-4 flex flex-col items-center">
+      <SEO title="E-Ticket Pesanan" />
+
+      {/* Bagian Tiket */}
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-lg overflow-hidden border border-gray-100 relative print:shadow-none print:border-none">
         
-        {/* KARTU TIKET */}
-        <div ref={ticketRef} className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative">
+        {/* Header Tiket */}
+        <div className="bg-blue-600 text-white p-6 text-center relative">
+          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold">Booking Berhasil!</h1>
+          <p className="text-blue-100 text-sm mt-1">Ini adalah E-Ticket resmi Anda</p>
           
-          {/* WATERMARK BACKGROUND */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04] z-0 overflow-hidden">
-            <svg className="w-96 h-96 text-gray-900 transform -rotate-12" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
-            </svg>
-          </div>
-
-          {/* HEADER (WARNA OTOMATIS BERBEDA: HIJAU JIKA ONLINE, BIRU/AMBER JIKA CASH) */}
-          <div className={`${isCash ? 'bg-blue-600' : 'bg-emerald-600'} text-white p-6 text-center relative z-10 transition-colors`}>
-            
-            {/* Lencana Status */}
-            <div className="absolute top-4 left-4 bg-white/15 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wider uppercase border border-white/20 flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${isCash ? 'bg-amber-300' : 'bg-emerald-300'} animate-pulse`}></span>
-              {isCash ? 'Bayar di Tempat (Cash)' : 'Lunas (Online Verified)'}
-            </div>
-
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 backdrop-blur-sm shadow-inner mt-2">
-              {isCash ? (
-                // Ikon Jam / Tagihan untuk Cash
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              ) : (
-                // Ikon Centang untuk Online
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path>
-                </svg>
-              )}
-            </div>
-
-            <h1 className="text-xl font-bold tracking-tight">
-              {isCash ? 'BOOKING BERHASIL DIBUAT' : 'PEMBAYARAN BERHASIL'}
-            </h1>
-            <p className={`${isCash ? 'text-blue-100' : 'text-emerald-100'} text-xs mt-0.5`}>
-              {isCash ? 'Silakan lunasi pembayaran saat tiba di lokasi' : 'Sistem Booking Lapangan Resmi'}
-            </p>
-          </div>
-
-          {/* DETAIL E-TICKET */}
-          <div className="p-6 space-y-5 bg-white/95 relative z-10">
-            
-            {/* Kode Booking */}
-            <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-4 text-center relative">
-              <span className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1 font-semibold">Kode Booking Pengaman</span>
-              <span className={`text-2xl font-mono font-extrabold ${isCash ? 'text-blue-700' : 'text-emerald-700'} tracking-wider`}>
-                {dataTiket.bookingCode || 'GOR-889231'}
-              </span>
-            </div>
-
-            {/* Rincian Pesanan */}
-            <div className="space-y-3 text-sm text-gray-600">
-              <div className="flex justify-between border-b border-gray-100 pb-2">
-                <span className="text-gray-400">Nama Lapangan</span>
-                <span className="font-semibold text-gray-900">{dataTiket.lapangan?.nama || "gor kronjo"}</span>
-              </div>
-              <div className="flex justify-between border-b border-gray-100 pb-2">
-                <span className="text-gray-400">Tanggal Main</span>
-                <span className="font-semibold text-gray-900">{dataTiket.tanggal}</span>
-              </div>
-              <div className="flex justify-between border-b border-gray-100 pb-2">
-                <span className="text-gray-400">Jam Sesi</span>
-                <span className="font-semibold text-blue-600 text-right">{renderJam()}</span>
-              </div>
-              <div className="flex justify-between border-b border-gray-100 pb-2">
-                <span className="text-gray-400">Metode Pembayaran</span>
-                <span className="font-semibold text-gray-900 uppercase">
-                  {isCash ? 'CASH (Bayar di GOR)' : dataTiket.paymentMethod}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-gray-100 pb-2">
-                <span className="text-gray-400">Waktu Transaksi</span>
-                <span className="font-semibold text-gray-900">{dataTiket.paidAt || 'Baru saja'}</span>
-              </div>
-              <div className="flex justify-between pt-1">
-                <span className="text-gray-400 font-medium">
-                  {isCash ? 'Total Tagihan' : 'Total Dibayar'}
-                </span>
-                <span className={`font-bold ${isCash ? 'text-blue-600' : 'text-emerald-600'} text-base`}>
-                  Rp {dataTiket.totalHarga?.toLocaleString('id-ID') || '0'}
-                </span>
-              </div>
-            </div>
-
-            {/* Catatan Instruksi Khusus (Beda Cash vs Online) */}
-            {isCash ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 leading-relaxed flex items-start gap-2">
-                <span className="text-base">💵</span>
-                <div>
-                  <strong className="block font-semibold mb-0.5">Instruksi Pembayaran Cash:</strong>
-                  Tunjukkan tiket ini dan bayar uang tunai sebesar <strong className="underline">Rp {dataTiket.totalHarga?.toLocaleString('id-ID')}</strong> langsung kepada penjaga GOR sebelum masuk lapangan.
-                </div>
-              </div>
-            ) : (
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700 leading-relaxed flex items-start gap-2">
-                <span className="text-base">🛡️</span>
-                <div>
-                  <strong className="block font-semibold mb-0.5">Tiket Lunas Terverifikasi</strong>
-                  Tunjukkan bukti E-Ticket berlogo ini kepada penjaga GOR saat tiba di lokasi sebelum bermain.
-                </div>
-              </div>
-            )}
-
-          </div>
-
+          {/* Garis putus-putus ala tiket */}
+          <div className="absolute bottom-0 left-0 w-full h-4 bg-[radial-gradient(circle,transparent_4px,#2563eb_4px)] bg-[length:12px_12px] bg-repeat-x -mb-2"></div>
         </div>
 
-        {/* TOMBOL AKSI */}
-        <div className="flex flex-col gap-2">
-          <button 
-            onClick={handleDownloadImage}
-            className={`w-full ${isCash ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'} text-white font-medium py-3 rounded-2xl transition cursor-pointer text-sm shadow-md flex items-center justify-center gap-2`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            Simpan Bukti sebagai Gambar (PNG)
-          </button>
-          <button 
-            onClick={() => navigate('/')}
-            className="w-full bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-2xl transition cursor-pointer text-sm border border-gray-200 shadow-sm"
-          >
-            Kembali ke Beranda
-          </button>
-        </div>
+        {/* Detail Tiket */}
+        <div className="p-6 pt-8 flex flex-col gap-5">
+          <div className="text-center pb-5 border-b border-dashed border-gray-200">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Kode Booking</p>
+            <p className="text-3xl font-mono font-bold text-gray-900 tracking-widest">{pesanan.bookingCode}</p>
+          </div>
 
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-gray-500 mb-1">Nama Pemesan</p>
+              <p className="font-semibold text-gray-900">{pesanan.namaPemesan}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">Nomor WhatsApp</p>
+              <p className="font-semibold text-gray-900">{pesanan.nomorWa}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">Lapangan</p>
+              <p className="font-semibold text-blue-600">{pesanan.lapangan?.nama}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">Tanggal</p>
+              <p className="font-semibold text-gray-900">{pesanan.tanggal}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-gray-500 mb-1">Sesi Jam</p>
+              <div className="flex flex-wrap gap-1">
+                {pesanan.jamTerpilih.map((jam, i) => (
+                  <span key={i} className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium border border-gray-200">
+                    {jam}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mt-2">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-500 text-sm">Metode</span>
+              <span className="font-semibold text-gray-800 text-sm uppercase">{pesanan.paymentMethod}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500 text-sm">Total Bayar</span>
+              <span className="font-bold text-emerald-600 text-lg">Rp {pesanan.totalHarga?.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+          
+          <div className="text-center text-xs text-gray-400 mt-2">
+            Dipesan pada: {pesanan.paidAt}
+          </div>
+        </div>
       </div>
+
+      {/* Area Tombol Aksi (Sembunyi saat di-print) */}
+      <div className="max-w-md w-full mt-6 flex flex-col gap-3 print:hidden">
+        <a 
+          href={linkWA}
+          target="_blank" 
+          rel="noreferrer"
+          className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-semibold py-3.5 rounded-2xl transition cursor-pointer shadow-md"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+          </svg>
+          Konfirmasi Pembayaran
+        </a>
+
+        <button 
+          onClick={() => window.print()}
+          className="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3.5 rounded-2xl transition cursor-pointer shadow-sm border border-gray-200"
+        >
+          Simpan / Print Tiket
+        </button>
+
+        <button 
+          onClick={() => navigate('/')}
+          className="w-full text-blue-600 font-semibold py-3 rounded-2xl transition cursor-pointer mt-2"
+        >
+          Kembali ke Beranda
+        </button>
+      </div>
+
     </div>
   );
 }
