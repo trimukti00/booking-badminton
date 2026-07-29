@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../supabaseClient'; // Sesuaikan letak file supabase client kamu
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,10 +13,17 @@ export default function Login() {
     setError('');
     
     try {
-      // Sesuaikan fungsi login Supabase atau backend Anda di sini
-      // Contoh: const { error } = await supabase.auth.signInWithPassword({ email, password });
-      // if (error) throw error;
-      // window.location.href = '/dashboard';
+      // Proses autentikasi langsung ke Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Jika berhasil login, arahkan ke halaman dashboard admin
+      window.location.href = '/dashboard'; // Ganti rutenya jika dashboard-mu punya path berbeda (misal: /admin/dashboard)
+      
     } catch (err) {
       setError(err.message || 'Gagal login, periksa kembali email dan password.');
     } finally {
