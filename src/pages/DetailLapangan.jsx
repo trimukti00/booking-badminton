@@ -182,20 +182,22 @@ export default function DetailLapangan() {
     else setIsLoading(false)
   }, [id])
 
-  // CEK JADWAL SPESIFIK BERDASARKAN LAPANGAN & TANGGAL
+  // CEK JADWAL AMAN BERDASARKAN ID LAPANGAN & TANGGAL
   useEffect(() => {
     const fetchBookedSlots = async () => {
       if (!id) return;
       try {
         const { data, error } = await supabase
           .from('reservasi')
-          .select('jam_mulai')
-          .eq('tanggal', selectedDate)
-          .eq('lapangan_id', id); // <-- Memastikan jadwal tidak tercampur antar lapangan
+          .select('lapangan_id, jam_mulai')
+          .eq('tanggal', selectedDate);
 
         if (error) throw error;
 
-        const bookedHours = data ? data.map(item => item.jam_mulai.substring(0, 5)) : [];
+        const bookedHours = (data || [])
+          .filter(item => String(item.lapangan_id) === String(id))
+          .map(item => item.jam_mulai ? item.jam_mulai.substring(0, 5) : '');
+
         setFilledSlots(bookedHours);
       } catch (error) {
         console.error('Gagal mengambil jadwal lapangan:', error.message);
@@ -206,7 +208,7 @@ export default function DetailLapangan() {
       setSelectedSlots([]); 
       fetchBookedSlots();   
     }
-  }, [selectedDate, id]);
+  }, [selectedDate, id, lapangan]);
 
   if (isLoading) {
     return (
