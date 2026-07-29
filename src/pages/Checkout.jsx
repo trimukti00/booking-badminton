@@ -65,20 +65,35 @@ export default function Checkout() {
         }
       ], { onConflict: 'telepon' });
 
-      // 2. Masukkan reservasi per jam ke tabel 'reservasi' dengan menyertakan lapangan_id
+      // 2. Proses reservasi per jam dengan pengecekan lapangan spesifik
       const jamList = pesanan.jamTerpilih;
       
       for (const jamMulai of jamList) {
         const jamSelesaiNum = parseInt(jamMulai, 10) + 1;
         const jamSelesaiStr = String(jamSelesaiNum).padStart(2, '0') + ':00';
+        const targetJamMulai = `${jamMulai}:00`;
 
+        // LANGKAH BARU: Cek manual spesifik berdasarkan lapangan_id dan tanggal
+        const { data: cekBooking } = await supabase
+          .from('reservasi')
+          .select('id')
+          .eq('tanggal', pesanan.tanggal)
+          .eq('jam_mulai', targetJamMulai)
+          .eq('lapangan_id', pesanan.lapangan?.id)
+          .maybeSingle();
+
+        if (cekBooking) {
+          throw new Error(`Mohon maaf, jam ${jamMulai} di ${pesanan.lapangan?.nama} sudah dibooking oleh orang lain!`);
+        }
+
+        // Jika kosong dan aman, baru kita masukkan ke database
         const { error } = await supabase.from('reservasi').insert([
           {
-            lapangan_id: pesanan.lapangan?.id, // <-- Kunci pemisah jadwal tiap lapangan
+            lapangan_id: pesanan.lapangan?.id,
             nama_pemesan: namaPemesan,
             nomor_wa: nomorWa,
             tanggal: pesanan.tanggal,
-            jam_mulai: `${jamMulai}:00`,
+            jam_mulai: targetJamMulai,
             jam_selesai: `${jamSelesaiStr}:00`,
             jenis_paket: 'Perorangan',
             total_harga: pesanan.totalHarga / jamList.length,
@@ -88,8 +103,9 @@ export default function Checkout() {
         ]);
 
         if (error) {
+          console.error("Error dari Supabase:", error);
           if (error.code === '23505') {
-            throw new Error(`Mohon maaf, jam ${jamMulai} pada tanggal tersebut sudah dibooking oleh orang lain!`);
+            throw new Error(`Database menolak: Jam ${jamMulai} sudah terdaftar. (Cek Unique Constraint di tabel reservasi)`);
           }
           throw error;
         }
