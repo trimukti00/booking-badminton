@@ -15,7 +15,7 @@ export default function Laporan() {
   const [tahun, setTahun] = useState(now.getFullYear())
   const [loading, setLoading] = useState(true)
 
-  const [stats, setStats] = useState({ pendapatan: 0, reservasi: 0, pelangganBaru: 0, lunas: 0, belum: 0 })
+  const [stats, setStats] = useState({ pendapatan: 0, reservasi: 0, totalPelanggan: 0, lunas: 0, belum: 0 })
   const [byDay, setByDay]   = useState([])
   const [byStatus, setByStatus] = useState({})
   const [topPelanggan, setTopPelanggan] = useState([])
@@ -28,10 +28,16 @@ export default function Laporan() {
     try {
       const { start, end } = getMonthRange(tahun, bulan)
       
-      // HANYA ambil dari tabel reservasi (anti-error)
-      const reservasi = await db.query('reservasi').catch(() => [])
+      // Mengambil data dari tabel reservasi DAN pelanggan secara bersamaan
+      const [reservasi, pelanggan] = await Promise.all([
+        db.query('reservasi').catch(() => []),
+        db.query('pelanggan').catch(() => [])
+      ])
 
-      // Filter berdasarkan bulan yang dipilih
+      // 1. Hitung Total Pelanggan Keseluruhan (Biar sinkron angka 29)
+      const totalPelangganData = Array.isArray(pelanggan) ? pelanggan.length : 0
+
+      // 2. Filter reservasi sesuai bulan yang dipilih
       const filteredRes = Array.isArray(reservasi) 
         ? reservasi.filter(r => r.tanggal && r.tanggal >= start && r.tanggal <= end) 
         : []
@@ -43,9 +49,6 @@ export default function Laporan() {
 
       const lunas = filteredRes.filter(r => (r.status_pembayaran || '').toLowerCase() === 'lunas').length
       const belum = filteredRes.filter(r => (r.status_pembayaran || '').toLowerCase() !== 'lunas').length
-
-      // Hitung jumlah pelanggan unik bulan ini dari nomor WA atau nama
-      const uniqueCustomers = new Set(filteredRes.map(r => r.nomor_wa || r.nama_pemesan)).size
 
       // Grafik Harian
       const daysInMonth = new Date(tahun, bulan, 0).getDate()
@@ -68,29 +71,39 @@ export default function Laporan() {
         statusCount[st] = (statusCount[st] || 0) + 1
       })
 
+      // Map nama pelanggan dari tabel pelanggan
+      const pelMap = {}
+      if (Array.isArray(pelanggan)) {
+         pelanggan.forEach(p => { pelMap[p.id] = p.nama })
+      }
+
       // Top Pelanggan
       const pelCount = {}
       filteredRes.forEach(r => {
-        const key = r.nama_pemesan || 'Tanpa Nama'
+        // Cocokkan id pelanggan dulu, kalau ga ada baru pakai nama
+        const key = r.pelanggan_id || r.nama_pemesan || 'Tanpa Nama'
         pelCount[key] = (pelCount[key] || 0) + 1
       })
 
       const topPel = Object.entries(pelCount)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(([nama, count]) => ({ nama, count }))
+        .map(([key, count]) => ({ 
+          nama: pelMap[key] || key, // Menampilkan nama asli dari tabel pelanggan
+          count 
+        }))
 
-      setStats({ pendapatan, reservasi: filteredRes.length, pelangganBaru: uniqueCustomers, lunas, belum })
+      setStats({ pendapatan, reservasi: filteredRes.length, totalPelanggan: totalPelangganData, lunas, belum })
       setByDay(dayData)
       setByStatus(statusCount)
       setTopPelanggan(topPel)
       
       // Amankan data nama untuk tabel
-      setAllReservasi(filteredRes.map(r => ({ ...r, nama_pelanggan: r.nama_pemesan || '-' })))
+      setAllReservasi(filteredRes.map(r => ({ ...r, nama_pelanggan: pelMap[r.pelanggan_id] || r.nama_pemesan || '-' })))
       
     } catch (error) {
       console.error('Data gagal dimuat:', error)
-      setStats({ pendapatan: 0, reservasi: 0, pelangganBaru: 0, lunas: 0, belum: 0 })
+      setStats({ pendapatan: 0, reservasi: 0, totalPelanggan: 0, lunas: 0, belum: 0 })
       setByDay([])
       setByStatus({})
       setTopPelanggan([])
@@ -109,7 +122,7 @@ export default function Laporan() {
     { label: 'Total Reservasi',  value: stats.reservasi,  icon: '📅', color: '#2563eb', bg: '#eff6ff' },
     { label: 'Pembayaran Lunas', value: stats.lunas,      icon: '✅', color: '#16a34a', bg: '#f0fdf4' },
     { label: 'Belum Lunas',      value: stats.belum,      icon: '⏳', color: '#ea580c', bg: '#fff7ed' },
-    { label: 'Pelanggan Bulan Ini', value: stats.pelangganBaru, icon: '👥', color: '#9333ea', bg: '#faf5ff' },
+    { label: 'Total Pelanggan',  value: stats.totalPelanggan, icon: '👥', color: '#9333ea', bg: '#faf5ff' },
   ]
 
   return (
