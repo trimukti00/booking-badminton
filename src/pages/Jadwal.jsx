@@ -56,9 +56,10 @@ export default function Jadwal() {
         db.query('reservasi'),
         db.query('pelanggan'),
       ])
-      setLapangan(l)
-      setReservasi(r.filter((res) => res.tanggal === tanggal))
-      setPelanggan(p)
+      setLapangan(l || [])
+      // Filter reservasi berdasarkan tanggal yang dipilih
+      setReservasi((r || []).filter((res) => res.tanggal === tanggal))
+      setPelanggan(p || [])
     } catch (error) {
       console.error(error)
       setLapangan([])
@@ -69,11 +70,18 @@ export default function Jadwal() {
     }
   }
 
+  // Pengecekan spesifik berdasarkan ID Lapangan dan Jam Mulai
   const getBooking = (lapanganId, jam) =>
-    reservasi.find((r) => r.lapangan_id === lapanganId && r.jam_mulai === jam && r.status !== 'dibatalkan')
+    reservasi.find((r) => 
+      String(r.lapangan_id) === String(lapanganId) && 
+      r.jam_mulai?.slice(0, 5) === jam.slice(0, 5) && 
+      r.status !== 'dibatalkan'
+    )
 
-  const getNamaPelanggan = (id) =>
-    pelanggan.find((p) => p.id === id)?.nama || '-'
+  const getNamaPelanggan = (id) => {
+    const found = pelanggan.find((p) => String(p.id) === String(id))
+    return found?.nama || '-'
+  }
 
   const openAdd = (lapanganId, jam) => {
     const jamIdx = HOURS.indexOf(jam)
@@ -91,23 +99,36 @@ export default function Jadwal() {
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    await db.insert('reservasi', { ...form, tanggal, status: 'menunggu' })
-    setSaving(false)
-    setModal(false)
-    load()
+    try {
+      await db.insert('reservasi', { ...form, tanggal, status: 'menunggu' })
+      setModal(false)
+      load()
+    } catch (err) {
+      alert('Gagal menyimpan reservasi: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleUpdateStatus = async (id, status) => {
-    await db.update('reservasi', id, { status })
-    setDetailModal(false)
-    load()
+    try {
+      await db.update('reservasi', id, { status })
+      setDetailModal(false)
+      load()
+    } catch (err) {
+      alert('Gagal update status: ' + err.message)
+    }
   }
 
   const handleDelete = async (id) => {
     if (!confirm('Hapus reservasi ini?')) return
-    await db.remove('reservasi', id)
-    setDetailModal(false)
-    load()
+    try {
+      await db.remove('reservasi', id)
+      setDetailModal(false)
+      load()
+    } catch (err) {
+      alert('Gagal menghapus: ' + err.message)
+    }
   }
 
   const totalBooked = reservasi.filter(r => r.status !== 'dibatalkan').length
@@ -124,11 +145,11 @@ export default function Jadwal() {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <button onClick={() => setTanggal(addDays(tanggal, -1))} className="px-3 py-2 rounded-xl bg-gray-100">‹</button>
-            <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl bg-white" />
-            <button onClick={() => setTanggal(addDays(tanggal, 1))} className="px-3 py-2 rounded-xl bg-gray-100">›</button>
+            <button onClick={() => setTanggal(addDays(tanggal, -1))} className="px-3 py-2 rounded-xl bg-gray-100 cursor-pointer">‹</button>
+            <input type="date" value={tanggal} onChange={(e) => setTanggal(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl bg-white text-gray-800" />
+            <button onClick={() => setTanggal(addDays(tanggal, 1))} className="px-3 py-2 rounded-xl bg-gray-100 cursor-pointer">›</button>
           </div>
-          <button onClick={() => setTanggal(new Date().toISOString().slice(0, 10))} className="bg-gray-100 px-3 py-2 rounded-xl">Hari Ini</button>
+          <button onClick={() => setTanggal(new Date().toISOString().slice(0, 10))} className="bg-gray-100 px-3 py-2 rounded-xl cursor-pointer text-gray-700">Hari Ini</button>
         </div>
       </header>
 
@@ -158,21 +179,26 @@ export default function Jadwal() {
             {lapangan.map((l) => (
               <div key={l.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="font-semibold text-gray-800">🏸 {l.nama}</div>
-                  <div className="text-sm text-gray-500">ID: {l.id?.toString().slice(0, 12)}</div>
+                  <div className="font-semibold text-gray-800 text-base">🏸 {l.nama}</div>
+                  <div className="text-xs text-gray-400">ID: {l.id?.toString().slice(0, 8)}</div>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {HOURS.map((jam) => {
                     const booking = getBooking(l.id, jam)
+                    const statusObj = STATUS_OPTIONS.find(s => s.value === (booking?.status || 'menunggu'))
                     return (
                       <div
                         key={jam}
                         onClick={() => booking ? openDetail(booking) : openAdd(l.id, jam)}
-                        className={`border rounded-lg p-3 text-center cursor-pointer transition ${booking ? 'bg-gray-50 hover:bg-gray-100' : 'hover:bg-blue-50'}`}
+                        className={`border rounded-xl p-3 text-center cursor-pointer transition ${
+                          booking 
+                            ? 'bg-blue-50/50 border-blue-200 hover:bg-blue-100/50' 
+                            : 'bg-white hover:bg-gray-50 border-gray-200'
+                        }`}
                       >
-                        <div className="text-sm font-medium text-gray-700">{jam}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {booking ? `${getNamaPelanggan(booking.pelanggan_id)} • ${STATUS_OPTIONS.find(s => s.value === booking.status)?.label || 'Menunggu'}` : 'Tersedia'}
+                        <div className="text-sm font-semibold text-gray-700">{jam}</div>
+                        <div className="text-xs mt-1 truncate font-medium" style={{ color: booking ? statusObj?.color || '#2563eb' : '#9ca3af' }}>
+                          {booking ? (getNamaPelanggan(booking.pelanggan_id) !== '-' ? getNamaPelanggan(booking.pelanggan_id) : 'Dibooking') : 'Tersedia'}
                         </div>
                       </div>
                     )
@@ -189,34 +215,34 @@ export default function Jadwal() {
         open={modal}
         onClose={() => setModal(false)}
         title="Buat Reservasi Baru"
-        subtitle={`Lapangan ${lapangan.find(l => l.id === form.lapangan_id)?.nama || ''} &mdash; ${tanggal}`}
+        subtitle={`Lapangan ${lapangan.find(l => String(l.id) === String(form.lapangan_id))?.nama || ''} — ${tanggal}`}
         icon="📅"
       >
-        <form onSubmit={handleSave} className="form-grid">
-          <div className="form-group">
-            <label className="form-label">Pelanggan <span className="required">*</span></label>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pelanggan <span className="text-red-500">*</span></label>
             <select
-              className="form-control"
+              className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-gray-800"
               value={form.pelanggan_id}
               onChange={(e) => setForm({ ...form, pelanggan_id: e.target.value })}
               required
             >
               <option value="">-- Pilih Pelanggan --</option>
               {pelanggan.map((p) => (
-                <option key={p.id} value={p.id}>{p.nama} &mdash; {p.telepon}</option>
+                <option key={p.id} value={p.id}>{p.nama} — {p.telepon}</option>
               ))}
             </select>
           </div>
 
-          <div className="form-grid-2">
-            <div className="form-group">
-              <label className="form-label">Jam Mulai</label>
-              <input className="form-control" value={form.jam_mulai} readOnly />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jam Mulai</label>
+              <input className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-gray-50 text-gray-800" value={form.jam_mulai} readOnly />
             </div>
-            <div className="form-group">
-              <label className="form-label">Jam Selesai</label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jam Selesai</label>
               <select
-                className="form-control"
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-gray-800"
                 value={form.jam_selesai}
                 onChange={(e) => setForm({ ...form, jam_selesai: e.target.value })}
               >
@@ -227,10 +253,10 @@ export default function Jadwal() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Catatan (opsional)</label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Catatan (opsional)</label>
             <textarea
-              className="form-control"
+              className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-gray-800"
               placeholder="Catatan tambahan..."
               value={form.catatan}
               onChange={(e) => setForm({ ...form, catatan: e.target.value })}
@@ -238,14 +264,9 @@ export default function Jadwal() {
             />
           </div>
 
-          <div style={{ padding: '12px 14px', background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--primary-700)', border: '1px solid var(--primary-200)' }}>
-            📅 <strong>Tanggal:</strong> {formatDateID(tanggal)} &bull;{' '}
-            🕐 <strong>{form.jam_mulai} - {form.jam_selesai}</strong>
-          </div>
-
-          <div className="form-footer">
-            <button type="button" className="btn-secondary" onClick={() => setModal(false)}>Batal</button>
-            <button type="submit" className="btn-primary" disabled={saving}>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl cursor-pointer" onClick={() => setModal(false)}>Batal</button>
+            <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition font-medium cursor-pointer disabled:opacity-50" disabled={saving}>
               {saving ? '⏳ Menyimpan...' : '✔ Simpan Reservasi'}
             </button>
           </div>
@@ -259,38 +280,30 @@ export default function Jadwal() {
         title="Detail Reservasi"
         subtitle="Lihat & kelola status reservasi"
         icon="📋"
-        maxWidth={440}
       >
         {selectedBooking && (
-          <div className="form-grid">
-            {[
-              { label: 'Pelanggan', value: getNamaPelanggan(selectedBooking.pelanggan_id) },
-              { label: 'Lapangan', value: lapangan.find(l => l.id === selectedBooking.lapangan_id)?.nama || '-' },
-              { label: 'Tanggal', value: formatDateID(selectedBooking.tanggal) },
-              { label: 'Jam', value: `${selectedBooking.jam_mulai?.slice(0,5)} - ${selectedBooking.jam_selesai?.slice(0,5) || '..'}` },
-              { label: 'Status', value: <span className={`badge badge-${selectedBooking.status || 'menunggu'}`}>{selectedBooking.status || 'menunggu'}</span> },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--gray-500)' }}>{label}</span>
-                <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--gray-800)' }}>{value}</span>
-              </div>
-            ))}
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-2xl space-y-2 text-sm border border-gray-100">
+              <div className="flex justify-between"><span className="text-gray-500">Pelanggan</span><span className="font-semibold text-gray-800">{getNamaPelanggan(selectedBooking.pelanggan_id)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Lapangan</span><span className="font-semibold text-gray-800">{lapangan.find(l => String(l.id) === String(selectedBooking.lapangan_id))?.nama || '-'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Tanggal</span><span className="font-semibold text-gray-800">{formatDateID(selectedBooking.tanggal)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Jam</span><span className="font-semibold text-blue-600">{selectedBooking.jam_mulai?.slice(0,5)} - {selectedBooking.jam_selesai?.slice(0,5) || '..'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Status</span><span className="font-semibold capitalize text-gray-800">{selectedBooking.status || 'menunggu'}</span></div>
+            </div>
 
             <div>
-              <label className="form-label" style={{ marginBottom: 8 }}>Update Status</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
+              <div className="grid grid-cols-2 gap-2">
                 {STATUS_OPTIONS.map((s) => (
                   <button
                     key={s.value}
                     type="button"
                     onClick={() => handleUpdateStatus(selectedBooking.id, s.value)}
-                    style={{
-                      padding: '7px 14px', border: `1.5px solid ${s.color}`,
-                      background: selectedBooking.status === s.value ? s.color : 'white',
-                      color: selectedBooking.status === s.value ? 'white' : s.color,
-                      borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                      fontSize: 12, fontWeight: 600, transition: 'all 0.15s',
-                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer text-center ${
+                      selectedBooking.status === s.value 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+                    }`}
                   >
                     {s.label}
                   </button>
@@ -298,15 +311,15 @@ export default function Jadwal() {
               </div>
             </div>
 
-            <div className="form-footer">
+            <div className="flex justify-between pt-2">
               <button
                 type="button"
-                className="btn-danger"
+                className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-100 transition cursor-pointer"
                 onClick={() => handleDelete(selectedBooking.id)}
               >
                 🗑️ Hapus Reservasi
               </button>
-              <button type="button" className="btn-secondary" onClick={() => setDetailModal(false)}>
+              <button type="button" className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer" onClick={() => setDetailModal(false)}>
                 Tutup
               </button>
             </div>
