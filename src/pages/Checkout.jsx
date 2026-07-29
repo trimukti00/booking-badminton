@@ -54,12 +54,21 @@ export default function Checkout() {
     setIsSubmitting(true);
 
     try {
-      // Loop jika pelanggan memesan lebih dari 1 jam (multi-slot)
-      // Kita masukkan satu per satu jam mulai ke tabel reservasi Supabase
+      // 1. OTOMATIS: Simpan atau Perbarui data pelanggan ke tabel 'pelanggan'
+      // Kita gunakan upsert berdasarkan nomor telepon/whatsapp agar tidak duplikat
+      await supabase.from('pelanggan').upsert([
+        {
+          nama: namaPemesan,
+          telepon: nomorWa,
+          email: `${namaPemesan.toLowerCase().replace(/\s+/g, '')}@pelanggan.com`, // Email otomatis jika tidak diisi
+          alamat: 'Dari Pemesanan Online'
+        }
+      ], { onConflict: 'telepon' });
+
+      // 2. Loop jika pelanggan memesan lebih dari 1 jam (multi-slot) ke tabel 'reservasi'
       const jamList = pesanan.jamTerpilih;
       
       for (const jamMulai of jamList) {
-        // Hitung jam selesai otomatis (1 jam durasi per slot)
         const jamSelesaiNum = parseInt(jamMulai, 10) + 1;
         const jamSelesaiStr = String(jamSelesaiNum).padStart(2, '0') + ':00';
 
@@ -68,17 +77,16 @@ export default function Checkout() {
             nama_pemesan: namaPemesan,
             nomor_wa: nomorWa,
             tanggal: pesanan.tanggal,
-            jam_mulai: `${jamMulai}:00`, // Format tipe data TIME PostgreSQL
+            jam_mulai: `${jamMulai}:00`,
             jam_selesai: `${jamSelesaiStr}:00`,
             jenis_paket: 'Perorangan',
-            total_harga: pesanan.totalHarga / jamList.length, // Harga per slot
+            total_harga: pesanan.totalHarga / jamList.length,
             status_pembayaran: selectedPayment === 'cash' ? 'Belum Lunas' : 'Lunas',
             status_kehadiran: 'Menunggu'
           }
         ]);
 
         if (error) {
-          // Jika satpam cegah_double_booking menolak karena sudah ada yang pesan
           if (error.code === '23505') {
             throw new Error(`Mohon maaf, jam ${jamMulai} pada tanggal tersebut sudah dibooking oleh orang lain!`);
           }
@@ -139,7 +147,7 @@ export default function Checkout() {
               placeholder="Nama Lengkap"
               value={namaPemesan}
               onChange={(e) => setNamaPemesan(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-600"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-600 text-gray-800"
             />
           </div>
           <div>
@@ -148,7 +156,7 @@ export default function Checkout() {
               placeholder="Nomor WhatsApp (Contoh: 08123456789)"
               value={nomorWa}
               onChange={(e) => setNomorWa(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-600"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-600 text-gray-800"
             />
           </div>
         </div>
