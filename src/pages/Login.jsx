@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient'; // Sesuaikan path ini jika perlu
+import { supabase } from '../supabaseClient'; // Pastikan file supabaseClient.js ada di luar folder pages
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -15,12 +15,15 @@ export default function Login() {
     setError('');
     
     try {
+      // Proses autentikasi langsung ngecek ke database Supabase Vercel
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       });
 
       if (error) throw error;
+
+      // Jika email & password benar, langsung masuk dashboard admin
       navigate('/dashboard');
       
     } catch (err) {
@@ -52,7 +55,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-800"
               placeholder="admin@gortakur.my.id"
             />
           </div>
@@ -64,7 +67,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-800"
               placeholder="Masukkan password"
             />
           </div>
@@ -72,11 +75,17 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-md disabled:opacity-50"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-md disabled:opacity-50 cursor-pointer"
           >
             {loading ? 'Memproses Masuk...' : 'Masuk ke Sistem'}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-xs text-gray-400">
+            Hubungi administrator utama untuk pengelolaan akun admin GOR TAKUR.
+          </p>
+        </div>
       </div>
     </div>
   );
