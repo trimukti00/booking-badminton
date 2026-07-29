@@ -116,17 +116,35 @@ export default function Pembayaran() {
       render: (r) => (
         <div style={{ fontSize: 13 }}>
           <div style={{ fontWeight: 500, color: 'var(--gray-800)' }}>{getNamaLapangan(r.lapangan_id)}</div>
-          <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>{r.tanggal} • {r.jam_mulai?.slice(0,5)}</div>
+          <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>
+            {r.tanggal} • {r.jam_mulai?.slice(0,5)} - {r.jam_selesai?.slice(0,5) || '..:..'}
+          </div>
         </div>
       )
     },
     {
-      key: 'total_harga', label: 'Jumlah',
+      key: 'total_harga', label: 'Jumlah Tagihan',
       render: (r) => (
         <span style={{ fontWeight: 700, color: 'var(--primary-700)', fontSize: 13 }}>
           Rp {Number(r.total_harga || 0).toLocaleString('id-ID')}
         </span>
       )
+    },
+    {
+      key: 'waktu_transaksi', label: 'Waktu Transaksi',
+      render: (r) => {
+        if (!r.created_at) return <span style={{ fontSize: 12, color: 'var(--gray-400)' }}>-</span>;
+        const tgl = new Date(r.created_at);
+        const formatWaktu = tgl.toLocaleString('id-ID', { 
+          day: '2-digit', month: 'short', year: 'numeric', 
+          hour: '2-digit', minute: '2-digit' 
+        });
+        return (
+          <div style={{ fontSize: 12, color: 'var(--gray-600)', fontWeight: 500 }}>
+            {formatWaktu}
+          </div>
+        );
+      }
     },
     {
       key: 'status_pembayaran', label: 'Status',
