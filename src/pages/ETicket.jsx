@@ -24,7 +24,7 @@ export default function ETicket() {
   }
 
   // UBAH NOMOR INI JADI NOMOR WA ADMIN GOR (Gunakan format 62...)
-  const NOMOR_WA_ADMIN = "6281234567890"; 
+  const NOMOR_WA_ADMIN = "62083160681742"; 
 
   // Format pesan otomatis untuk WhatsApp
   const pesanWA = `Halo Admin GORTAKUR, saya ingin konfirmasi pembayaran booking lapangan:
