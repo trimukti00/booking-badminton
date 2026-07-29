@@ -23,8 +23,8 @@ export default function ETicket() {
     );
   }
 
-  // UBAH NOMOR INI JADI NOMOR WA ADMIN GOR (Gunakan format 62...)
-  const NOMOR_WA_ADMIN = "62083160681742"; 
+  // ANGKA 0 DI DEPAN SUDAH DIHAPUS (Langsung 628...)
+  const NOMOR_WA_ADMIN = "6283160681742"; 
 
   // Format pesan otomatis untuk WhatsApp
   const pesanWA = `Halo Admin GORTAKUR, saya ingin konfirmasi pembayaran booking lapangan:
@@ -39,7 +39,8 @@ export default function ETicket() {
 
 Berikut saya lampirkan bukti transfer pembayarannya. Mohon bantu di-cek ya min! 🙏`;
 
-  const linkWA = `https://wa.me/${NOMOR_WA_ADMIN}?text=${encodeURIComponent(pesanWA)}`;
+  // SUDAH DIGANTI PAKAI API WHATSAPP RESMI BIAR LANCAR DI LAPTOP & HP
+  const linkWA = `https://api.whatsapp.com/send?phone=${NOMOR_WA_ADMIN}&text=${encodeURIComponent(pesanWA)}`;
 
   return (
     <div className="min-h-screen bg-gray-100 py-10 px-4 flex flex-col items-center">
