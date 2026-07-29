@@ -182,7 +182,7 @@ export default function DetailLapangan() {
     else setIsLoading(false)
   }, [id])
 
-  // CEK JADWAL AMAN BERDASARKAN ID LAPANGAN & TANGGAL
+  // CEK JADWAL DENGAN PENCANDRAAN FLEKSIBEL
   useEffect(() => {
     const fetchBookedSlots = async () => {
       if (!id) return;
@@ -195,7 +195,12 @@ export default function DetailLapangan() {
         if (error) throw error;
 
         const bookedHours = (data || [])
-          .filter(item => String(item.lapangan_id) === String(id))
+          .filter(item => {
+            if (!item.lapangan_id) return false;
+            const dbId = String(item.lapangan_id).trim();
+            const currentId = String(id).trim();
+            return dbId === currentId || dbId.includes(currentId) || currentId.includes(dbId);
+          })
           .map(item => item.jam_mulai ? item.jam_mulai.substring(0, 5) : '');
 
         setFilledSlots(bookedHours);
