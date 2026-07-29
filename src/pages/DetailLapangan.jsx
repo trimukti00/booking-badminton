@@ -182,26 +182,45 @@ export default function DetailLapangan() {
     else setIsLoading(false)
   }, [id])
 
-  // CEK JADWAL DENGAN PENCANDRAAN FLEKSIBEL
+  // CEK JADWAL DENGAN ALAT PELACAK (DEBUGGING)
   useEffect(() => {
     const fetchBookedSlots = async () => {
       if (!id) return;
       try {
+        console.log('--- DEBUG JADWAL MULAI ---');
+        console.log('1. Tanggal yang dipilih:', selectedDate);
+        console.log('2. ID Lapangan yang dibuka:', id);
+
+        // Ambil SEMUA data reservasi di tanggal tersebut biar keliatan
         const { data, error } = await supabase
           .from('reservasi')
-          .select('lapangan_id, jam_mulai')
+          .select('*') 
           .eq('tanggal', selectedDate);
 
-        if (error) throw error;
+        if (error) {
+          console.error('3. WADUH ADA ERROR DARI SUPABASE:', error);
+          throw error;
+        }
+
+        console.log('4. Data mentah dari Database:', data);
 
         const bookedHours = (data || [])
           .filter(item => {
             if (!item.lapangan_id) return false;
             const dbId = String(item.lapangan_id).trim();
             const currentId = String(id).trim();
-            return dbId === currentId || dbId.includes(currentId) || currentId.includes(dbId);
+            
+            const isMatch = dbId === currentId || dbId.includes(currentId) || currentId.includes(dbId);
+            
+            if (isMatch) {
+               console.log('5. COCOK! Lapangan ID sama:', dbId, 'Jam:', item.jam_mulai);
+            }
+            return isMatch;
           })
           .map(item => item.jam_mulai ? item.jam_mulai.substring(0, 5) : '');
+
+        console.log('6. Hasil akhir jam yang akan di-abu-abu:', bookedHours);
+        console.log('--- DEBUG SELESAI ---');
 
         setFilledSlots(bookedHours);
       } catch (error) {
