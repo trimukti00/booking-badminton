@@ -1,35 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient'; // Pastikan file supabaseClient.js ada di luar folder pages
+import { useAuth } from '../context/AuthContext'; // Sekarang kita pakai AuthContext
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingProcess, setLoadingProcess] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { login, user } = useAuth(); // Ambil data dari buku tamu
+
+  // KUNCI ANTI-MENTAL: Dia bakal otomatis pindah ke Dashboard HANYA KALAU user sudah benar-benar dicatat!
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setLoadingProcess(true);
     setError('');
-    
+
     try {
-      // Proses autentikasi langsung ngecek ke database Supabase Vercel
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
-
-      if (error) throw error;
-
-      // Jika email & password benar, langsung masuk dashboard admin
-      navigate('/dashboard');
-      
+      // Panggil fungsi login dari AuthContext
+      await login(email, password);
+      // GAK ADA KODE NAVIGATE DI SINI LAGI BIAR GAK BALAPAN
     } catch (err) {
       setError(err.message || 'Gagal login, periksa kembali email dan password.');
-    } finally {
-      setLoading(false);
+      setLoadingProcess(false);
     }
   };
 
@@ -74,18 +73,12 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loadingProcess}
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-md disabled:opacity-50 cursor-pointer"
           >
-            {loading ? 'Memproses Masuk...' : 'Masuk ke Sistem'}
+            {loadingProcess ? 'Memproses Masuk...' : 'Masuk ke Sistem'}
           </button>
         </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-400">
-            Hubungi administrator utama untuk pengelolaan akun admin GOR TAKUR.
-          </p>
-        </div>
       </div>
     </div>
   );
