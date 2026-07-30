@@ -5,7 +5,7 @@ import { db } from '../lib/db'
 import { useAuth } from '../context/AuthContext'
 
 const quickActions = [
-  { to: '/pelanggan', icon: '👥', label: 'Tambah Pelanggan', desc: 'Registrasi pelanggan baru', color: '#2563eb', bg: '#eff6ff' },
+  { to: '/pelanggan', icon: '👥', label: 'Data Pelanggan', desc: 'Kelola data pelanggan', color: '#2563eb', bg: '#eff6ff' },
   { to: '/jadwal', icon: '📅', label: 'Buat Jadwal', desc: 'Reservasi lapangan baru', color: '#0d9488', bg: '#f0fdfa' },
   { to: '/pembayaran', icon: '💳', label: 'Input Pembayaran', desc: 'Catat transaksi pembayaran', color: '#7c3aed', bg: '#f5f3ff' },
   { to: '/laporan', icon: '📈', label: 'Lihat Laporan', desc: 'Analisis pendapatan & data', color: '#ea580c', bg: '#fff7ed' },

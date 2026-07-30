@@ -32,7 +32,6 @@ export default function Pelanggan() {
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
-  const openAdd = () => { setForm(emptyForm); setEditId(null); setModal(true) }
   const openEdit = (row) => {
     setForm({ nama: row.nama || '', telepon: row.telepon || '', email: row.email || '', alamat: row.alamat || '' })
     setEditId(row.id)
@@ -115,9 +114,6 @@ export default function Pelanggan() {
             <h1 className="text-2xl font-bold">Data Pelanggan</h1>
             <p className="text-gray-500">Kelola data pelanggan GOR TAKUR — {data.length} pelanggan terdaftar</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={openAdd} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium cursor-pointer">＋ Tambah Pelanggan</button>
-          </div>
         </div>
       </header>
 
@@ -161,7 +157,7 @@ export default function Pelanggan() {
               onDelete={handleDelete}
               loading={loading}
               emptyIcon="👥"
-              emptyText="Belum ada pelanggan terdaftar. Klik 'Tambah Pelanggan' untuk memulai."
+              emptyText="Belum ada pelanggan terdaftar."
             />
           </div>
         </div>
@@ -171,8 +167,8 @@ export default function Pelanggan() {
       <Modal
         open={modal}
         onClose={() => setModal(false)}
-        title={editId ? 'Edit Data Pelanggan' : 'Tambah Pelanggan Baru'}
-        subtitle={editId ? 'Ubah informasi pelanggan' : 'Isi data pelanggan baru'}
+        title="Edit Data Pelanggan"
+        subtitle="Ubah informasi pelanggan"
         icon="👥"
       >
         <form onSubmit={handleSave} className="space-y-4">
@@ -200,7 +196,7 @@ export default function Pelanggan() {
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl cursor-pointer" onClick={() => setModal(false)}>Batal</button>
             <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium cursor-pointer disabled:opacity-50" disabled={saving}>
-              {saving ? '⏳ Menyimpan...' : editId ? '✔ Simpan Perubahan' : '＋ Tambah Pelanggan'}
+              {saving ? '⏳ Menyimpan...' : '✔ Simpan Perubahan'}
             </button>
           </div>
         </form>
